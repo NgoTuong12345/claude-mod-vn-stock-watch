@@ -336,7 +336,6 @@ export const register: Register = on => {
     const age = m.at ? Math.round((Date.now() - m.at) / 1000) : 0
 
     const sectors = [...new Set(q.map(x => x.g))].sort()
-    const nextSector = () => update($, only, cur => sectors[(sectors.indexOf(cur) + 1) % (sectors.length + 1)] ?? '')
     const picked = sel ? sel.split('|') : []
     const pool = picked.length ? q.filter(y => picked.includes(y.g)) : q
     const by = new Map<string, Quote[]>()
@@ -362,7 +361,7 @@ export const register: Register = on => {
       color: x.change > 0 ? '#2FA55A' : x.change < 0 ? '#C0392B' : '#C9A227',
     }))
     const ixLen = ixs.reduce((n, x) => n + x.head.length + x.chg.length + 3, 0)
-    const ixRows = ixs.length ? Math.ceil(ixLen / cols) : 0
+    const ixRows = (ixs.length ? Math.ceil(ixLen / cols) : 0) + (sel && !desktop ? 1 : 0) // + chips row
     const W = Math.max(30, cols - 1)
     const narrow = W < 62 // short labels so no control row wraps
     const bodyRows = (e.props as any)?.scroll?.bodyRows ?? (e.viewport?.rows ?? 30) - 3
@@ -380,12 +379,9 @@ export const register: Register = on => {
     const dualCols = t !== 'port' && wr.length > cap ? fit(kind, Math.floor((W - 2) / 2), kind === 'vol' ? 0 : 2) : undefined
     const dual = !!dualCols
     const cs = dualCols ?? fit(kind, W, kind === 'vol' ? 0 : 99) ?? (kind === 'vol' ? COLS[kind] : COLS[kind].filter(c => !DROP[kind].includes(c.h)))
-    const shown = wr.slice(0, dual ? cap * 2 : cap)
+    const shown = wr // pane scrolls: show every row instead of truncating
     const half = dual ? Math.ceil(shown.length / 2) : shown.length
-    const more = wr.length - shown.length
-    // tabs + input + hint + table header + rows (+ total, + "more")
-    const wRows = 4 + (wl.length ? wl.length + 3 : 0) + Math.max(1, half) + (t === 'port' && wr.length > 0 ? 1 : 0) + (more > 0 ? 1 : 0)
-    const H = Math.max(4, bodyRows - 3 - ixRows - wRows) // clock + status + buttons + index row(s)
+    const H = Math.max(8, Math.floor(bodyRows * 0.55) - 3 - ixRows) // fixed share; tables below scroll
     const grid = q.length && !desktop ? buildGrid(groups, W, H, z) : []
     gridTop = 3 + ixRows // clock, status, buttons, index row(s)
     gridLen = grid.length
@@ -524,9 +520,32 @@ export const register: Register = on => {
         <Box>
           <Button key="by-sector" label="Sector" hotkey="s" variant={v === 'sector' ? 'primary' : undefined} onPress={() => update($, view, () => 'sector' as View)} />
           <Button key="by-exchange" label={narrow ? 'Exch' : 'Exchange'} hotkey="e" variant={v === 'exchange' ? 'primary' : undefined} onPress={() => update($, view, () => 'exchange' as View)} />
-          <Button key="sector-filter" label={sel ? `${narrow ? '' : 'Filter: '}${picked.length > 1 ? `${picked.length} sectors` : narrow ? SHORT[sel] ?? sel.split(' ')[0] : sel.slice(0, 18)}` : narrow ? 'All' : 'Filter: all'} hotkey="f" onPress={nextSector} />
+          <Select
+            key="sel-filter"
+            label={narrow ? '' : 'Filter '}
+            value="__sum"
+            options={[
+              { value: '__sum', label: picked.length ? (picked.length > 1 ? `${picked.length} sectors` : picked[0]!).slice(0, narrow ? 10 : 24) : narrow ? 'All' : 'All sectors' },
+              { value: '__all', label: 'Clear filter (all sectors)' },
+              ...sectors.map(x => ({ value: x, label: `${picked.includes(x) ? '✓ ' : '   '}${x}` })),
+            ]}
+            onSelect={(x: string) => {
+              if (x === '__sum') return
+              void update($, only, cur => {
+                if (x === '__all') return ''
+                const c = cur ? cur.split('|') : []
+                return (c.includes(x) ? c.filter(y => y !== x) : [...c, x]).join('|')
+              })
+            }}
+          />
           <Button key="filter-default" label={narrow ? 'Reset' : 'Default'} hotkey="d" variant={sel ? undefined : 'primary'} onPress={() => update($, only, () => '')} />
         </Box>
+        {picked.length > 0 && (
+          <Box flexWrap="wrap">
+            <Text dimColor>Showing </Text>
+            {picked.map(x => <Button key={`chip-${x}`} label={`${x} ✕`} onPress={() => update($, only, cur => cur.split('|').filter(y => y !== x).join('|'))} />)}
+          </Box>
+        )}
         {ixs.length > 0 && (
           <Box flexWrap="wrap">
             {ixs.map(x => (
@@ -559,7 +578,6 @@ export const register: Register = on => {
             {dual && shown[i + half] && rowCell(shown[i + half]!)}
           </Box>
         ))}
-        {more > 0 && <Text dimColor>{cut(`+${more} more (pane too short)`)}</Text>}
         {t === 'port' && wr.length > 0 && (() => {
           const cost = wr.reduce((a, r) => a + (l.port[r.s] ? l.port[r.s].c * 1000 * l.port[r.s].q : 0), 0)
           const val = wr.reduce((a, r) => a + (l.port[r.s] ? r.p * l.port[r.s].q : 0), 0)
