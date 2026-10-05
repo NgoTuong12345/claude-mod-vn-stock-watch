@@ -1,4 +1,4 @@
-// SSI iBoard quotes for the watchlist strip (public REST, see api-contract.md).
+// SSI iBoard quotes for the watchlist strip (public REST, see docs/ssi-iboard-api.md).
 // ponytail: 3s REST polling; the real push feed is MQTT+protobuf at
 // wss://price-streaming.ssi.com.vn/mqtt, needs a spawned helper since mods have no WebSocket.
 import type { Lists, Quote, WRow } from './types'

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code **mod** (hot-reloaded plugin, not an app): a `/vn-heatmap` pane showing a live Vietnam stock-market treemap, a watchlist and a portfolio. Install location is `~/.claude/mods/vn-stockmarket-heatmap`. There is no build step; `hooks/hooks.json` loads `./index.tsx` directly. Load the `plugin-authoring` skill before changing mod APIs.
+A Claude Code **mod** (hot-reloaded plugin, not an app): a `/vn-heatmap` pane showing a live Vietnam stock-market treemap, a watchlist and a portfolio. Must live at `~/.claude/mods/vn-stockmarket-heatmap`: state is written to `../../state/` relative to the mod root. There is no build step; `hooks/hooks.json` loads `./index.tsx` directly. Load the `plugin-authoring` skill before changing mod APIs.
 
 ## Commands
 
@@ -21,7 +21,7 @@ bun tests/watch.check.ts   # self-check for hooks/watch.ts (parse/apply/suggest/
 - `hooks/treemap.ts`: squarified layout (`squarify`) and terminal cell rendering for the heatmap grid.
 - `hooks/types.d.ts`: shared types (`Tab = vn30 | watch | port`, `View = sector | exchange`).
 
-Data source is **SSI iBoard** public REST (`iboard-query.ssi.com.vn` for quotes by group or multi-symbol, `iboard-api.ssi.com.vn/statistics` for sector map and history). Contract and traps are in `docs/api/ssi-iboard.md`. Polling is 3 s; a push feed exists (MQTT+protobuf) but mods cannot open WebSockets. `docs/api/vietstock.md` and `tools/heatmap_poll.py` are research on an alternative source, not used by the mod.
+Data source is **SSI iBoard** public REST (`iboard-query.ssi.com.vn` for quotes by group or multi-symbol, `iboard-api.ssi.com.vn/statistics` for sector map and history). Contract and traps are in `docs/ssi-iboard-api.md`. Polling is 3 s; a push feed exists (MQTT+protobuf) but mods cannot open WebSockets.
 
 ## Gotchas
 
