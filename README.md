@@ -1,9 +1,6 @@
 # VN Stock Heatmap — Claude Code mod
 
-| Desktop app | Terminal |
-| :---: | :---: |
-| <img src="docs/desktop_preview.png" width="400" alt="Desktop app"> | <img src="docs/terminal_preview.png" width="400" alt="Terminal"> |
-| SVG treemap and zoomable tables, map-size and text-size sliders, clickable buttons | Cell-grid treemap and text tables, keyboard hotkeys, mouse-wheel zoom |
+<img src="docs/desktop_preview.png" width="560" alt="VN heatmap in the Claude Code desktop app">
 Live Vietnam stock-market heatmap (SSI iBoard data) in a Claude Code pane, with a VN30 table, watchlist and portfolio. Works in the **terminal** (`claude`) and the **Claude Code desktop app**. No API key, no dependencies, no build step.
 
 ## Install
