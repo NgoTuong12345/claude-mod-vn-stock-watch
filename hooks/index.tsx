@@ -424,7 +424,8 @@ export const register: Register = on => {
       const wlT = wl.length ? table(wl, 'wl') : undefined
       const adj = await read($, mapadj)
       const slIdx = Math.max(0, Math.min(SL_N - 1, Math.round(adj / SL_STEP) + SL_AUTO))
-      const mapH = Math.max(160, Math.min(2400, Math.max(320, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 230))) + adj))
+      // ~19px per row; fixed chrome (header, selects, index row, 2 sliders, tab, total, search, hint, watchlist title + remove row) ≈ 400px. Floor 200 so tall tables shrink the map instead of pushing the watchlist below the fold.
+      const mapH = Math.max(160, Math.min(2400, Math.max(200, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 400))) + adj))
       return (
         <Box flexDirection="column" backgroundColor="#202226" flexGrow={1}>
           <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}<Text color={session().c}> · {session().t}</Text>{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''} · Source: SSI API</Text></Text>
