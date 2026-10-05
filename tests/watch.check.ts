@@ -4,13 +4,14 @@ import { apply, HEADERS, parse, rowsOf, sectorsOf, SSI, suggest, toQuote, toRow 
 const assert = (c: unknown, m: string) => { if (!c) throw new Error(m) }
 
 const known = (s: string) => ['FPT', 'FPTS', 'HPG'].includes(s)
-// treemap grid: every tile drawn (half-block raster), labels only on whole rows of their own tile colour
+// treemap grid: big tiles drawn, tiny tail dropped, hidden count in header, labels only on whole rows of their own tile colour
 {
-  const tiles = Array.from({ length: 40 }, (_, i) => ({ label: `T${i}`, sub: '+1.0', bg: `#0000${(i + 16).toString(16)}`, v: 100 / (i + 1) }))
+  const tiles = Array.from({ length: 200 }, (_, i) => ({ label: `T${i}`, sub: '+1.0', bg: `#00${(i + 16).toString(16).padStart(4, "0")}`, v: 100 / (i + 1) }))
   const g = buildGrid([{ heads: ['Grp'], tone: '#fff', v: 1, tiles }], 60, 20, 3)
   const cs = g.flat()
   assert(g.length === 20 && g.every(r => r.length === 60), 'grid size')
-  assert(tiles.every(t => cs.some(c => c.bg === t.bg || c.fg === t.bg)), 'every tile drawn')
+  assert(tiles.slice(0, 5).every(t => cs.some(c => c.bg === t.bg || c.fg === t.bg)), 'big tiles drawn')
+  assert(/Grp · \+\d+/.test(g.map(r => r.map(c => c.ch).join('')).join('')), 'hidden count')
   assert(cs.every(c => !/[A-Z0-9]/.test(c.ch) || c.bg !== '#1e1e1e'), 'no text on gap')
 }
 assert(parse('fpt', known, false).op === 'add', 'add')

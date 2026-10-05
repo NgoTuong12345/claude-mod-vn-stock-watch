@@ -5,6 +5,7 @@ export type Cell = { ch: string; bg: string; fg: string; b: boolean }
 
 const GAP = '#1e1e1e'
 const HEAD = '#2b2b2b'
+const MIN = 12 // subcells (cols x half-rows) a tile needs to be drawn on its own
 const BLANK: Cell = { ch: ' ', bg: GAP, fg: '#FFFFFF', b: false }
 
 const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
@@ -75,15 +76,27 @@ export const buildGrid = (groups: Group[], W: number, H: number, zoom = 0): Cell
     const w = x1 - x0, h = y1 - y0
     if (w < 3 || h < 2) return
     let ty0 = y0
-    if (h >= 6) {
-      const hr = Math.ceil(y0 / 2) // first whole row inside the group carries the header text
-      fill(x0, y0, x1 - 1, hr * 2 + 2, HEAD) // last col stays GAP so adjacent headers don't merge
-      const head = grp.heads.find(s => s.length <= w - 2) // never cut mid-word: shorter form or nothing
-      if (head) text(hr, x0 + 1, head, grp.tone, HEAD, true)
-      ty0 = hr * 2 + 2
+    const head = h >= 6
+    if (head) ty0 = Math.ceil(y0 / 2) * 2 + 2
+    // drop the small-cap tail (tiles under ~3x2 cells read as confetti) and let the rest fill the group;
+    // then drop trailing slivers (thinner than 2 cols or 2 subrows) until the layout is clean
+    const area = w * (y1 - ty0), tot = grp.tiles.reduce((s, t) => s + t.v, 0)
+    let tiles = [...grp.tiles].sort((p, q) => q.v - p.v).filter((t, n) => n === 0 || (t.v / tot) * area >= MIN)
+    let tr = squarify(tiles.map(t => t.v), x0, ty0, w, y1 - ty0)
+    const thin = (q: number[]) => { const [a0, b0, a1, b1] = box(q); return a1 - a0 < 3 || b1 - b0 < 3 }
+    while (tiles.length > 1 && tr.some(thin)) {
+      tiles = tiles.slice(0, -1)
+      tr = squarify(tiles.map(t => t.v), x0, ty0, w, y1 - ty0)
     }
-    const tr = squarify(grp.tiles.map(t => t.v), x0, ty0, w, y1 - ty0)
-    grp.tiles.forEach((t, j) => {
+    if (head) {
+      const hr = ty0 / 2 - 1 // first whole row inside the group carries the header text
+      fill(x0, y0, x1 - 1, ty0, HEAD) // last col stays GAP so adjacent headers don't merge
+      const hid = grp.tiles.length - tiles.length
+      const heads = hid ? [...grp.heads.map(x => `${x} · +${hid}`), ...grp.heads] : grp.heads
+      const label = heads.find(x => x.length <= w - 2) // never cut mid-word: shorter form or nothing
+      if (label) text(hr, x0 + 1, label, grp.tone, HEAD, true)
+    }
+    tiles.forEach((t, j) => {
       const [a0, b0, a1, b1] = box(tr[j])
       const tw = a1 - a0, th = b1 - b0
       if (tw < 1 || th < 1) return
@@ -97,7 +110,7 @@ export const buildGrid = (groups: Group[], W: number, H: number, zoom = 0): Cell
       const label = t.label // never truncated: "T1" for T11 would name the wrong ticker
       if (nr < minH || !ok(label)) return // too small to name: colour only
       const mid = (s: string) => a0 + Math.floor((iw - s.length) / 2)
-      const sub = ok(t.sub) ? t.sub : undefined
+      const sub = t.sub && ok(t.sub) ? t.sub : undefined
       if (nr >= 2) {
         const top = r0 + Math.floor((nr - (sub ? 2 : 1)) / 2)
         text(top, mid(label), label, '#FFFFFF', t.bg, true)
