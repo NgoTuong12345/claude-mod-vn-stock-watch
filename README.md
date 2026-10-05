@@ -31,7 +31,7 @@ To try it without installing into `mods/`: `claude --plugin-dir /path/to/vn-stoc
 
 ## Use
 
-Both surfaces: sector/exchange views, sector filter, index strip (VN-Index, HNX-Index, UPCOM-Index), VN30 table, watchlist table with 1M/3M/YTD returns, and a **Remove** row with one button per watchlist ticker. Price changes flash the whole row until the next poll.
+Both surfaces: sector/exchange views (desktop: "Group by" and multi-select "Filter" dropdowns: each pick toggles a sector, chips remove them), sector filter, index strip (VN-Index, HNX-Index, UPCOM-Index), VN30 table, watchlist table with 1M/3M/YTD returns, foreign buy/sell volume and remaining room (F.Buy, F.Sell, Room), and a **Remove** row with one button per watchlist ticker. Price changes flash the whole row until the next poll.
 
 - Add a ticker: type `FPT` in the search box and press Enter (a partial code like `FP` takes the top suggestion). Remove: `-FPT`, or press its button in the Remove row.
 - Portfolio (terminal): open the My Watchlist tab and type `FPT 1000 62.4` (quantity, cost in thousand VND). It shows value, P&L and a total row.
@@ -41,7 +41,7 @@ Both surfaces: sector/exchange views, sector filter, index strip (VN-Index, HNX-
 
 **Desktop:** the treemap is an SVG sized to the pane.
 - Map size: click a bar in the "Map size" slider; `⟲` resets to auto. (The desktop host gives plugins no pointer drag, so it is click-to-set, not draggable.)
-- `A−` / `A+` scale the table text; zoom in far enough and the VN30 table splits into two side-by-side tables.
+- Text size: click a bar in the "Text size" slider (12–32px, 1px steps; `⟲` resets). Zoom in far enough and the VN30 table splits into two side-by-side tables.
 
 ## Layout
 

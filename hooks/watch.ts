@@ -16,7 +16,7 @@ export const toRow = (x: any): WRow => {
   return {
     s: x.stockSymbol, ex: String(x.exchange ?? '').toUpperCase(), p, ref: x.refPrice, ch: ch ?? 0, pct: pct ?? 0,
     vol: x.nmTotalTradedQty ?? 0, hi: x.highest ?? 0, lo: x.lowest ?? 0,
-    bu: x.stockBUVol ?? 0, sd: x.stockSDVol ?? 0, fl: 0, // active buy/sell volume; fl = price flash vs last poll (set by caller)
+    bu: x.stockBUVol ?? 0, sd: x.stockSDVol ?? 0, fb: x.buyForeignQtty ?? 0, fs: x.sellForeignQtty ?? 0, fr: x.remainForeignQtty ?? 0, fl: 0, // active buy/sell volume; fb/fs/fr = foreign buy/sell qty and remaining room; fl = price flash vs last poll (set by caller)
     k: p > 0 && p >= x.ceiling ? 'c' : p > 0 && p <= x.floor ? 'f' : '',
   }
 }

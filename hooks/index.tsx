@@ -26,7 +26,7 @@ const wmeta = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmeta' } as const, 
 const zoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'zoom' } as const, 0)
 const wq = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wq' } as const, '')
 const mapadj = atom({ plugin: 'vn-stockmarket-heatmap', key: 'mapadj' } as const, 0)
-const tzoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'tzoom' } as const, 0)
+const tzoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'tzoom' } as const, 1)
 const wmsg = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmsg' } as const, '')
 
 const WATCH_MS = 3_000
@@ -301,7 +301,7 @@ export const register: Register = on => {
       void refreshWatch($)
     }
     try {
-    const { Box, Text, Button, Input, Svg } = $.ui.resolve(e) as any
+    const { Box, Text, Button, Input, Select, Svg } = $.ui.resolve(e) as any
     const desktop = e.surface === 'desktop'
     const q = await read($, quotes)
     const m = await read($, meta)
@@ -316,7 +316,8 @@ export const register: Register = on => {
 
     const sectors = [...new Set(q.map(x => x.g))].sort()
     const nextSector = () => update($, only, cur => sectors[(sectors.indexOf(cur) + 1) % (sectors.length + 1)] ?? '')
-    const pool = sel ? q.filter(y => y.g === sel) : q
+    const picked = sel ? sel.split('|') : []
+    const pool = picked.length ? q.filter(y => picked.includes(y.g)) : q
     const by = new Map<string, Quote[]>()
     for (const x of pool) {
       const key = v === 'sector' ? x.g : EXCHANGE[x.x] || '?'
@@ -355,9 +356,9 @@ export const register: Register = on => {
     const kind = t === 'port' ? 'port' : 'vol'
     // Two side-by-side tables only when the list overflows one AND each half still fits (dropping at most Buy/Sell);
     // otherwise one table, dropping low-priority columns until it fits. Never wraps.
-    const dualCols = t !== 'port' && wr.length > cap ? fit(kind, Math.floor((W - 2) / 2), 2) : undefined
+    const dualCols = t !== 'port' && wr.length > cap ? fit(kind, Math.floor((W - 2) / 2), kind === 'vol' ? 0 : 2) : undefined
     const dual = !!dualCols
-    const cs = dualCols ?? fit(kind, W, 99) ?? COLS[kind].filter(c => !DROP[kind].includes(c.h))
+    const cs = dualCols ?? fit(kind, W, kind === 'vol' ? 0 : 99) ?? (kind === 'vol' ? COLS[kind] : COLS[kind].filter(c => !DROP[kind].includes(c.h)))
     const shown = wr.slice(0, dual ? cap * 2 : cap)
     const half = dual ? Math.ceil(shown.length / 2) : shown.length
     const more = wr.length - shown.length
@@ -392,8 +393,8 @@ export const register: Register = on => {
       const lh = Math.round(fs * 1.65)
       const table = (rs: WRow[], k: 'vol' | 'port' | 'wl', pl = false) => {
         const pxCells = (px: number) => Math.floor(px / (fs * 0.62))
-        const two = rs.length > 1 ? fit(k, pxCells((mapW - 24) / 2), 2) : undefined
-        const cs = two ?? fit(k, pxCells(mapW), 99) ?? COLS[k].filter(c => !DROP[k].includes(c.h))
+        const two = rs.length > 1 ? fit(k, pxCells((mapW - 24) / 2), k === 'vol' ? 0 : 2) : undefined // VN30 (vol): Vol/Buy/Sell never dropped
+        const cs = two ?? fit(k, pxCells(mapW), k === 'vol' ? 0 : 99) ?? (k === 'vol' ? COLS[k] : COLS[k].filter(c => !DROP[k].includes(c.h)))
         const trs: TRow[] = rs.map(r => ({ cells: cs.map(c => c.cell(r, pl ? l.port[r.s] : undefined)), bg: r.fl > 0 ? '#2ECC71' : r.fl < 0 ? '#FF5A4D' : undefined }))
         const svg = tableSvg(cs, trs, mapW, fs, !!two)
         return { svg, h: ((two ? Math.ceil(rs.length / 2) : rs.length) + 1) * lh + 4 }
@@ -404,14 +405,41 @@ export const register: Register = on => {
       const slIdx = Math.max(0, Math.min(SL_N - 1, Math.round(adj / SL_STEP) + SL_AUTO))
       const mapH = Math.max(160, Math.min(2400, Math.max(320, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 230))) + adj))
       return (
-        <Box flexDirection="column">
-          <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}{q.length > 0 && !isMarketOpen() ? ' · market closed' : ''}{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''}</Text></Text>
+        <Box flexDirection="column" backgroundColor="#202226" flexGrow={1}>
+          <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}{q.length > 0 && !isMarketOpen() ? ' · market closed' : ''}{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''} · Source: SSI API</Text></Text>
           <Box flexWrap="wrap">
-            <Button key="by-sector" label="Sector" variant={v === 'sector' ? 'primary' : undefined} onPress={() => update($, view, () => 'sector' as View)} />
-            <Button key="by-exchange" label="Exchange" variant={v === 'exchange' ? 'primary' : undefined} onPress={() => update($, view, () => 'exchange' as View)} />
-            <Button key="sector-filter" label={sel ? `Filter: ${sel.slice(0, 18)}` : 'Filter: all'} onPress={nextSector} />
-            <Button key="filter-default" label="Default" variant={sel ? undefined : 'primary'} onPress={() => update($, only, () => '')} />
+            <Select
+              key="sel-view"
+              label="Group by "
+              value={v}
+              options={[{ value: 'sector', label: 'Sector' }, { value: 'exchange', label: 'Exchange' }]}
+              onSelect={(x: string) => { void update($, view, () => x as View) }}
+            />
+            <Select
+              key="sel-filter"
+              label="Filter "
+              value="__sum"
+              options={[
+                { value: '__sum', label: picked.length ? picked.join(', ').slice(0, 40) : 'All sectors' },
+                { value: '__all', label: 'Clear filter (all sectors)' },
+                ...sectors.map(x => ({ value: x, label: `${picked.includes(x) ? '✓ ' : '   '}${x}` })),
+              ]}
+              onSelect={(x: string) => {
+                if (x === '__sum') return
+                void update($, only, cur => {
+                  if (x === '__all') return ''
+                  const c = cur ? cur.split('|') : []
+                  return (c.includes(x) ? c.filter(y => y !== x) : [...c, x]).join('|')
+                })
+              }}
+            />
           </Box>
+          {picked.length > 0 && (
+            <Box flexWrap="wrap">
+              <Text dimColor>Showing </Text>
+              {picked.map(x => <Button key={`chip-${x}`} label={`${x} ✕`} onPress={() => update($, only, cur => cur.split('|').filter(y => y !== x).join('|'))} />)}
+            </Box>
+          )}
           {ixs.length > 0 && <Box flexWrap="wrap">{ixs.map(x => <Text key={x.key}><Text bold>{x.head}</Text><Text color={x.color}>{x.chg}{'   '}</Text></Text>)}</Box>}
           {q.length === 0 ? <Text dimColor>Loading…</Text> : <Svg source={buildSvg(groups, mapW, mapH)} alt="Vietnam stock-market treemap by market cap, coloured by daily change" />}
           <Box>
@@ -422,9 +450,14 @@ export const register: Register = on => {
             <Button key="map-auto" label="⟲" onPress={() => update($, mapadj, () => 0)} />
           </Box>
           <Box>
+            <Text dimColor>Text size </Text>
+            {TABLE_FS.map((_, k) => (
+              <Button key={`ts${k}`} plain label={k <= tz ? '█' : '░'} onPress={() => update($, tzoom, () => k)} />
+            ))}
+            <Button key="ts-auto" label="⟲" onPress={() => update($, tzoom, () => 1)} />
+          </Box>
+          <Box>
             <Button key="tab-vn30" label="VN30" variant={t === 'vn30' ? 'primary' : undefined} onPress={() => setTab($, 'vn30')} />
-            <Button key="tz-out" label="A−" onPress={() => update($, tzoom, z => Math.max(0, z - 1))} />
-            <Button key="tz-in" label="A+" onPress={() => update($, tzoom, z => Math.min(TABLE_FS.length - 1, z + 1))} />
           </Box>
           {!mainT ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : <Svg source={mainT.svg} alt="Stock table" />}
           {t === 'port' && wr.length > 0 && (() => {
@@ -464,11 +497,12 @@ export const register: Register = on => {
           {m.status === 'live' ? `${age}s ago` : m.status}
           {q.length > 0 && !isMarketOpen() ? (narrow ? ' · closed' : ' · market closed') : ''}
           {capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''}
+          {' · Source: SSI API'}
         </Text>
         <Box>
           <Button key="by-sector" label="Sector" hotkey="s" variant={v === 'sector' ? 'primary' : undefined} onPress={() => update($, view, () => 'sector' as View)} />
           <Button key="by-exchange" label={narrow ? 'Exch' : 'Exchange'} hotkey="e" variant={v === 'exchange' ? 'primary' : undefined} onPress={() => update($, view, () => 'exchange' as View)} />
-          <Button key="sector-filter" label={sel ? `${narrow ? '' : 'Filter: '}${narrow ? SHORT[sel] ?? sel.split(' ')[0] : sel.slice(0, 18)}` : narrow ? 'All' : 'Filter: all'} hotkey="f" onPress={nextSector} />
+          <Button key="sector-filter" label={sel ? `${narrow ? '' : 'Filter: '}${picked.length > 1 ? `${picked.length} sectors` : narrow ? SHORT[sel] ?? sel.split(' ')[0] : sel.slice(0, 18)}` : narrow ? 'All' : 'Filter: all'} hotkey="f" onPress={nextSector} />
           <Button key="filter-default" label={narrow ? 'Reset' : 'Default'} hotkey="d" variant={sel ? undefined : 'primary'} onPress={() => update($, only, () => '')} />
         </Box>
         {ixs.length > 0 && (
@@ -570,8 +604,8 @@ export const register: Register = on => {
   })
 }
 
-const UP_BG = '#14532D'
-const DN_BG = '#7F1D1D'
+const UP_BG = '#244D38'
+const DN_BG = '#583030'
 const plc = (v: number) => (v > 0 ? '#2FA55A' : v < 0 ? '#C0392B' : '#C9A227')
 
 // Sector header fallbacks (SSI ICB sectors), tried after the full name when a treemap group is narrow.
@@ -606,12 +640,18 @@ const COLS: Record<'vol' | 'port' | 'wl', Col[]> = {
     { h: 'Vol', w: 8, cell: r => ({ s: vol(r.vol), dim: true }) },
     { h: 'Buy', w: 8, cell: r => ({ s: vol(r.bu ?? 0), c: '#2FA55A' }) },
     { h: 'Sell', w: 8, cell: r => ({ s: vol(r.sd ?? 0), c: '#C0392B' }) },
+    { h: 'F.Buy', w: 8, cell: r => ({ s: vol(r.fb ?? 0), c: '#2FA55A' }) },
+    { h: 'F.Sell', w: 8, cell: r => ({ s: vol(r.fs ?? 0), c: '#C0392B' }) },
+    { h: 'Room', w: 10, cell: r => { const v = r.fr ?? 0; return v < 0 ? { s: `-${vol(-v)}`, c: '#C0392B' } : { s: vol(v), dim: true } } },
   ],
   wl: [
     ...LEAD,
     { h: 'Vol', w: 8, cell: r => ({ s: vol(r.vol), dim: true }) },
     { h: 'Buy', w: 8, cell: r => ({ s: vol(r.bu ?? 0), c: '#2FA55A' }) },
     { h: 'Sell', w: 8, cell: r => ({ s: vol(r.sd ?? 0), c: '#C0392B' }) },
+    { h: 'F.Buy', w: 8, cell: r => ({ s: vol(r.fb ?? 0), c: '#2FA55A' }) },
+    { h: 'F.Sell', w: 8, cell: r => ({ s: vol(r.fs ?? 0), c: '#C0392B' }) },
+    { h: 'Room', w: 10, cell: r => { const v = r.fr ?? 0; return v < 0 ? { s: `-${vol(-v)}`, c: '#C0392B' } : { s: vol(v), dim: true } } },
     { h: '1M', w: 8, cell: r => rc(r.rt?.m1) },
     { h: '3M', w: 8, cell: r => rc(r.rt?.m3) },
     { h: 'YTD', w: 8, cell: r => rc(r.rt?.y) },
@@ -621,6 +661,9 @@ const COLS: Record<'vol' | 'port' | 'wl', Col[]> = {
     { h: 'Vol', w: 8, cell: r => ({ s: vol(r.vol), dim: true }) },
     { h: 'Buy', w: 8, cell: r => ({ s: vol(r.bu ?? 0), c: '#2FA55A' }) },
     { h: 'Sell', w: 8, cell: r => ({ s: vol(r.sd ?? 0), c: '#C0392B' }) },
+    { h: 'F.Buy', w: 8, cell: r => ({ s: vol(r.fb ?? 0), c: '#2FA55A' }) },
+    { h: 'F.Sell', w: 8, cell: r => ({ s: vol(r.fs ?? 0), c: '#C0392B' }) },
+    { h: 'Room', w: 10, cell: r => { const v = r.fr ?? 0; return v < 0 ? { s: `-${vol(-v)}`, c: '#C0392B' } : { s: vol(v), dim: true } } },
     { h: '1M', w: 8, cell: r => rc(r.rt?.m1) },
     { h: '3M', w: 8, cell: r => rc(r.rt?.m3) },
     { h: 'YTD', w: 8, cell: r => rc(r.rt?.y) },
@@ -632,7 +675,7 @@ const COLS: Record<'vol' | 'port' | 'wl', Col[]> = {
   ],
 }
 // least useful first: dropped one by one until the table fits
-const DROP: Record<'vol' | 'port' | 'wl', string[]> = { vol: ['Sell', 'Buy', 'Chg', 'Vol'], wl: ['Sell', 'Buy', 'Vol', 'Chg'], port: ['Sell', 'Buy', 'Vol', 'Chg', 'Cost', 'Qty', '%', 'Value', 'P&L%'] }
+const DROP: Record<'vol' | 'port' | 'wl', string[]> = { vol: ['Room', 'F.Sell', 'F.Buy', 'Sell', 'Buy', 'Chg', 'Vol'], wl: ['Room', 'F.Sell', 'F.Buy', 'Sell', 'Buy', 'Vol', 'Chg'], port: ['Room', 'F.Sell', 'F.Buy', 'Sell', 'Buy', 'Vol', 'Chg', 'Cost', 'Qty', '%', 'Value', 'P&L%'] }
 const fit = (k: 'vol' | 'port' | 'wl', room: number, maxDrop: number): Col[] | undefined => {
   let cs = COLS[k]
   for (let i = 0; ; i++) {
