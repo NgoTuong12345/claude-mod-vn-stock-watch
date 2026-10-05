@@ -1,6 +1,6 @@
 # VN Stock Heatmap — Claude Code mod
 
-Live Vietnam stock-market heatmap (Vietstock data) in a Claude Code pane, with watchlist and portfolio.
+Live Vietnam stock-market heatmap (SSI iBoard data) in a Claude Code pane, with watchlist and portfolio.
 
 ## Layout
 
@@ -8,7 +8,8 @@ Live Vietnam stock-market heatmap (Vietstock data) in a Claude Code pane, with w
 .claude-plugin/plugin.json   plugin manifest
 hooks/                       mod source (index.tsx, treemap.ts, watch.ts, types.d.ts, hooks.json)
 tests/                       self-checks (watch.check.ts, watch.test.tsx)
-docs/                        screenshots
+docs/api/                    data-source API notes (ssi-iboard.md = used by mod, vietstock.md = research)
+tools/                       heatmap_poll.py (standalone Vietstock polling script, research)
 ```
 
 ## Install

@@ -1,0 +1,13 @@
+# iboard.ssi.com.vn API contract
+- verified: 2026-10-05 (clean-shell curl replay, market open)
+- archetype: single-call (group / multi-symbol snapshot)
+- tier: public (no cookies, no auth; bare request without headers also 200)
+- endpoints:
+  - GET  https://iboard-query.ssi.com.vn/stock/group/VN30 (also VN100, HNX30, ... via `/stock/group/{group}`)
+  - POST https://iboard-query.ssi.com.vn/stock/multiple  body `{"stocks":["FPT","SHS"]}` (JSON) or form `stocks=FPT&stocks=SHS`; max 200 symbols (bundle `CONFIG_LIMIT_STOCK_MULTIPLE_QUERY=200`); spans HOSE/HNX/UPCOM
+  - GET  https://iboard-query.ssi.com.vn/stock/stock-info  ticker universe (~2028 rows: code, clientName, clientNameEn, exchange, type)
+- response: `{ code, message, data: [...] }`; record key `stockSymbol`
+- record fields used: matchedPrice, refPrice, ceiling, floor, priceChange, priceChangePercent, nmTotalTradedQty, highest, lowest, exchange; pre-match: expectedMatchedPrice / expectedPriceChange(Percent). Prices raw VND (21100 = 21.10 on board).
+- count: VN30 group returns 30 rows — cross-check: group name
+- streaming (not used by the mod): MQTT over WebSocket `wss://price-streaming.ssi.com.vn/mqtt`, user/pass `mqtt-ssi`/`mqtt-ssi` (public, inline in bundle), protobuf payloads (`MQTT_PROTOBUF=1`). Needs a protobuf schema from the bundle and a real WS client.
+- traps: none hit; matchedPrice=0 before first match (fall back to expected/ref price)
