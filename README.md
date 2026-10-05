@@ -45,18 +45,6 @@ Re-run `/reload-plugins` after every code change or `git pull`. If `/vn-heatmap`
 
 To try it without installing into `mods/`: `claude --plugin-dir /path/to/vn-stockmarket-heatmap`.
 
-## Desktop vs terminal
-
-One pane, two renderers. Same data, same commands.
-
-| | Desktop app | Terminal |
-| --- | --- | --- |
-| Treemap | Pixel SVG, fills the pane | Character cell grid |
-| Tables | SVG, text size adjustable (Text size slider) | Plain text columns, two side by side when the list is long |
-| Map size | Slider of buttons | Mouse wheel over the map zooms |
-| Controls | Dropdowns (Group by, multi-select Filter) and buttons | Buttons with hotkeys: `s` sector, `e` exchange, `f` filter, `d` default |
-| Watchlist | Shown under the search box, with Remove buttons | Same |
-
 ## Use
 
 Both surfaces: sector/exchange views (desktop: "Group by" and multi-select "Filter" dropdowns: each pick toggles a sector, chips remove them), sector filter, index strip (VN-Index, HNX-Index, UPCOM-Index), VN30 table, watchlist table with 1M/3M/YTD returns, foreign buy/sell volume and remaining room (F.Buy, F.Sell, Room), and a **Remove** row with one button per watchlist ticker. Price changes flash the whole row until the next poll.
