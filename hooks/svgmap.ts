@@ -55,7 +55,8 @@ export const buildSvg = (groups: Group[], W: number, H: number): string => {
 export type TCell = { s: string; c?: string; dim?: boolean; b?: boolean }
 export type THead = { h: string; w: number; left?: boolean }
 export type TRow = { cells: TCell[]; bg?: string }
-export const TABLE_FS = Array.from({ length: 21 }, (_, i) => 12 + i) // px, 1px steps (text-size slider)
+export const TABLE_FS = Array.from({ length: 16 }, (_, i) => 7 + i) // px, 1px steps 7-22 (text-size slider)
+export const TABLE_FS_DEF = 6 // 13px
 
 export const tableSvg = (heads: THead[], rows: TRow[], W: number, fs: number, dual: boolean): string => {
   const lh = Math.round(fs * 1.65)

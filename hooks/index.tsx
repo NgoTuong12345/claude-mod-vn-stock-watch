@@ -3,7 +3,7 @@ import type { Register } from 'claude-code'
 
 import type { Idx, Lists, Meta, Quote, Tab, View, WRow } from './types'
 import { buildGrid, runs, ZOOMS } from './treemap'
-import { buildSvg, tableSvg, TABLE_FS } from './svgmap'
+import { buildSvg, tableSvg, TABLE_FS, TABLE_FS_DEF } from './svgmap'
 import type { TRow } from './svgmap'
 import type { Group } from './treemap'
 import { apply, EXCHANGE, HEADERS, MAX, parse, rowsOf, sectorsOf, SSI, STATS, suggest, toQuote, toRow, toTicker } from './watch'
@@ -26,7 +26,7 @@ const wmeta = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmeta' } as const, 
 const zoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'zoom' } as const, 0)
 const wq = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wq' } as const, '')
 const mapadj = atom({ plugin: 'vn-stockmarket-heatmap', key: 'mapadj' } as const, 0)
-const tzoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'tzoom' } as const, 1)
+const tzoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'tzoom' } as const, -1)
 const wmsg = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmsg' } as const, '')
 
 const WATCH_MS = 3_000
@@ -405,23 +405,30 @@ export const register: Register = on => {
     if (desktop) {
       // Fill the pane: ~8px per column. Table zoom (A-/A+) scales the SVG text; once two tables fit side by side, it shows two.
       const mapW = Math.max(480, Math.round(cols * 8))
-      const tz = await read($, tzoom)
-      const fs = TABLE_FS[Math.max(0, Math.min(TABLE_FS.length - 1, tz))]!
-      const lh = Math.round(fs * 1.65)
-      const table = (rs: WRow[], k: 'vol' | 'port' | 'wl', pl = false) => {
-        const pxCells = (px: number) => Math.floor(px / (fs * 0.62))
-        const two = rs.length > 1 ? fit(k, pxCells((mapW - 24) / 2), k === 'vol' ? 0 : 2) : undefined // VN30 (vol): Vol/Buy/Sell never dropped
-        const cs = two ?? fit(k, pxCells(mapW), k === 'vol' ? 0 : 99) ?? (k === 'vol' ? COLS[k] : COLS[k].filter(c => !DROP[k].includes(c.h)))
-        const trs: TRow[] = rs.map(r => ({ cells: cs.map(c => c.cell(r, pl ? l.port[r.s] : undefined)), bg: r.fl > 0 ? '#2ECC71' : r.fl < 0 ? '#FF5A4D' : undefined }))
-        const svg = tableSvg(cs, trs, mapW, fs, !!two)
-        return { svg, h: ((two ? Math.ceil(rs.length / 2) : rs.length) + 1) * lh + 4 }
-      }
-      const mainT = wr.length ? table(wr, kind, t === 'port') : undefined
-      const wlT = wl.length ? table(wl, 'wl') : undefined
+      const tz0 = await read($, tzoom)
       const adj = await read($, mapadj)
       const slIdx = Math.max(0, Math.min(SL_N - 1, Math.round(adj / SL_STEP) + SL_AUTO))
-      // ~19px per row; fixed chrome (header, selects, index row, 2 sliders, tab, total, search, hint, watchlist title + remove row) ≈ 400px. Floor 200 so tall tables shrink the map instead of pushing the watchlist below the fold.
-      const mapH = Math.max(160, Math.min(2400, Math.max(200, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 400))) + adj))
+      const table = (rs: WRow[], k: 'vol' | 'port' | 'wl', fs: number, pl = false) => {
+        const lh = Math.round(fs * 1.65)
+        const pxCells = (px: number) => Math.floor(px / (fs * 0.62))
+        const two = rs.length > 1 ? fit(k, pxCells((mapW - 24) / 2), k === 'vol' ? 3 : 2) : undefined // VN30 (vol): drops Room/F.Sell/F.Buy to fit two tables; Vol/Buy/Sell stay
+        const cs = two ?? fit(k, pxCells(mapW), k === 'vol' ? 0 : 99) ?? (k === 'vol' ? COLS[k] : COLS[k].filter(c => !DROP[k].includes(c.h)))
+        const h = ((two ? Math.ceil(rs.length / 2) : rs.length) + 1) * lh + 4
+        const svg = () => tableSvg(cs, rs.map(r => ({ cells: cs.map(c => c.cell(r, pl ? l.port[r.s] : undefined)), bg: r.fl > 0 ? '#2ECC71' : r.fl < 0 ? '#FF5A4D' : undefined } as TRow)), mapW, fs, !!two)
+        return { svg, h }
+      }
+      const tblH = (fs: number) => (wr.length ? table(wr, kind, fs, t === 'port').h : 40) + (wl.length ? table(wl, 'wl', fs).h : 0)
+      // ~19px per row; fixed chrome (header, selects, index row, 2 sliders, tab, total, search, hint, watchlist title + remove row) ≈ 400px.
+      const total = (e.viewport?.rows ?? 60) * 19 - 400
+      const clampMap = (h: number) => Math.max(200, Math.min(1100, Math.round(h)))
+      // Auto text size (tz0 < 0): the map keeps the space it gets at the default size (+ the map-size slider), and the tables take whatever height is left, so the biggest text that still fits wins. Smaller map => bigger text; bigger map => smaller text.
+      const refFs = TABLE_FS[tz0 >= 0 ? Math.min(TABLE_FS.length - 1, tz0) : TABLE_FS_DEF]!
+      const mapH = Math.max(160, Math.min(2400, clampMap(total - tblH(refFs)) + adj))
+      const autoIdx = TABLE_FS.map((_, i) => i).reverse().find(i => tblH(TABLE_FS[i]!) <= total - mapH) ?? 0
+      const tz = tz0 >= 0 ? Math.min(TABLE_FS.length - 1, tz0) : autoIdx
+      const fs = TABLE_FS[tz]!
+      const mainT = wr.length ? table(wr, kind, fs, t === 'port') : undefined
+      const wlT = wl.length ? table(wl, 'wl', fs) : undefined
       return (
         <Box flexDirection="column" backgroundColor="#202226" flexGrow={1}>
           <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}<Text color={session().c}> · {session().t}</Text>{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''} · Source: SSI API</Text></Text>
@@ -472,12 +479,12 @@ export const register: Register = on => {
             {TABLE_FS.map((_, k) => (
               <Button key={`ts${k}`} plain label={k <= tz ? '█' : '░'} onPress={() => update($, tzoom, () => k)} />
             ))}
-            <Button key="ts-auto" label="⟲" onPress={() => update($, tzoom, () => 1)} />
+            <Button key="ts-auto" label="⟲" onPress={() => update($, tzoom, () => -1)} />
           </Box>
           <Box>
             <Button key="tab-vn30" label="VN30" variant={t === 'vn30' ? 'primary' : undefined} onPress={() => setTab($, 'vn30')} />
           </Box>
-          {!mainT ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : <Svg source={mainT.svg} alt="Stock table" />}
+          {!mainT ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : <Svg source={mainT.svg()} alt="Stock table" />}
           {t === 'port' && wr.length > 0 && (() => {
             const cost = wr.reduce((a, r) => a + (l.port[r.s] ? l.port[r.s].c * 1000 * l.port[r.s].q : 0), 0)
             const val = wr.reduce((a, r) => a + (l.port[r.s] ? r.p * l.port[r.s].q : 0), 0)
@@ -497,7 +504,7 @@ export const register: Register = on => {
           {wlT && (
             <Box flexDirection="column">
               <Text bold>My Watchlist</Text>
-              <Svg source={wlT.svg} alt="Watchlist table" />
+              <Svg source={wlT.svg()} alt="Watchlist table" />
               <Box flexWrap="wrap">
                 <Text dimColor>Remove </Text>
                 {l.watch.map(sym => <Button key={`rm-${sym}`} label={`${sym} −`} onPress={() => { void submit($, `-${sym}`) }} />)}
