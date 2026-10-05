@@ -16,7 +16,7 @@ In Claude Code (terminal or desktop):
 /reload-plugins
 ```
 
-Then run `/vn-heatmap`. State is still saved to `~/.claude/state/`. Update with `/plugin marketplace update vn-stock-watch`.
+Then run `/vn-stock-watch`. State is still saved to `~/.claude/state/`. Update with `/plugin marketplace update vn-stock-watch`.
 
 ### Manual clone
 
@@ -30,18 +30,18 @@ git clone https://github.com/NgoTuong12345/claude-mod-vn-stock-watch.git ~/.clau
 
 Paste this into Claude Code (terminal or desktop), or any coding agent with shell access:
 
-> Clone `https://github.com/NgoTuong12345/claude-mod-vn-stock-watch.git` into `~/.claude/mods/vn-stockmarket-heatmap` (create `~/.claude/mods` if missing; on Windows use `%USERPROFILE%\.claude\mods`). Keep that exact folder name. Do not run a build, there is none. Then run `claude plugin validate ~/.claude/mods/vn-stockmarket-heatmap` and report the result. Finally tell me to run `/reload-plugins` and then `/vn-heatmap`.
+> Clone `https://github.com/NgoTuong12345/claude-mod-vn-stock-watch.git` into `~/.claude/mods/vn-stockmarket-heatmap` (create `~/.claude/mods` if missing; on Windows use `%USERPROFILE%\.claude\mods`). Keep that exact folder name. Do not run a build, there is none. Then run `claude plugin validate ~/.claude/mods/vn-stockmarket-heatmap` and report the result. Finally tell me to run `/reload-plugins` and then `/vn-stock-watch`.
 
 To update later: `git -C ~/.claude/mods/vn-stockmarket-heatmap pull`, then `/reload-plugins`.
 
-## Enable `/vn-heatmap`
+## Enable `/vn-stock-watch`
 
 A mod in `~/.claude/mods/` is picked up by Claude Code, but a running session only loads it on request:
 
 1. In the Claude Code prompt (terminal or desktop) run `/reload-plugins`. A new session picks it up by itself.
-2. Run `/vn-heatmap`. The pane opens and starts polling SSI iBoard.
+2. Run `/vn-stock-watch`. The pane opens and starts polling SSI iBoard.
 
-Re-run `/reload-plugins` after every code change or `git pull`. If `/vn-heatmap` is not found, run `/reload-plugins` again and check that `claude plugin validate ~/.claude/mods/vn-stockmarket-heatmap` passes and the folder name is exact.
+Re-run `/reload-plugins` after every code change or `git pull`. If `/vn-stock-watch` is not found, run `/reload-plugins` again and check that `claude plugin validate ~/.claude/mods/vn-stockmarket-heatmap` passes and the folder name is exact.
 
 To try it without installing into `mods/`: `claude --plugin-dir /path/to/vn-stockmarket-heatmap`.
 

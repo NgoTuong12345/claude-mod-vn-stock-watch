@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Claude Code **mod** (hot-reloaded plugin, not an app): a `/vn-heatmap` pane showing a live Vietnam stock-market treemap, a watchlist and a portfolio. Must live at `~/.claude/mods/vn-stockmarket-heatmap`: state is written to `../../state/` relative to the mod root. There is no build step; `hooks/hooks.json` loads `./index.tsx` directly. Runs on the terminal and the desktop Code tab (one pane, two renderers). Load the `plugin-authoring` skill before changing mod APIs. A running session does not hot-reload `~/.claude/mods/`: after an edit the user runs `/reload-plugins`, then `/vn-heatmap`. Install and usage steps for people and coding agents are in `README.md`; keep it in step with behaviour changes.
+A Claude Code **mod** (hot-reloaded plugin, not an app): a `/vn-stock-watch` pane showing a live Vietnam stock-market treemap, a watchlist and a portfolio. Must live at `~/.claude/mods/vn-stockmarket-heatmap`: state is written to `../../state/` relative to the mod root. There is no build step; `hooks/hooks.json` loads `./index.tsx` directly. Runs on the terminal and the desktop Code tab (one pane, two renderers). Load the `plugin-authoring` skill before changing mod APIs. A running session does not hot-reload `~/.claude/mods/`: after an edit the user runs `/reload-plugins`, then `/vn-stock-watch`. Install and usage steps for people and coding agents are in `README.md`; keep it in step with behaviour changes.
 
 ## Commands
 

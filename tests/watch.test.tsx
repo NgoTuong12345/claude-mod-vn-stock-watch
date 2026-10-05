@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 const PANE = {
-  component: 'Pane', requestId: 'vn-heatmap',
-  props: { title: 'VN heatmap', isFocused: true, bodyColumns: 100, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
+  component: 'Pane', requestId: 'vn-stock-watch',
+  props: { title: 'VN Stock Watch', isFocused: true, bodyColumns: 100, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {} },
 } as any
 
 describe('watchlist strip', () => {

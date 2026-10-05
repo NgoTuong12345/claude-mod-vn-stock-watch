@@ -9,7 +9,7 @@ import type { Group } from './treemap'
 import { apply, EXCHANGE, HEADERS, MAX, parse, rowsOf, sectorsOf, SSI, STATS, suggest, toQuote, toRow, toTicker } from './watch'
 import type { Ticker } from './watch'
 
-const PANE = 'vn-heatmap'
+const PANE = 'vn-stock-watch'
 const OPEN_MS = 15_000 // 3 exchange snapshots (~2 MB) per poll; don't go much lower
 const CLOSED_EVERY = 8 // ticks per real fetch while the market is closed (~2 min)
 
@@ -286,7 +286,7 @@ const startTimers = ($: any) => {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'vn-heatmap', description: 'Live Vietnam stock-market heatmap pane' })
+    await $.command.register({ name: 'vn-stock-watch', description: 'Live Vietnam stock-market heatmap and price board pane' })
     try {
       const saved = JSON.parse(await $.fs.read(listsFile($))) as Lists
       if (Array.isArray(saved.watch) && saved.port) await update($, lists, () => saved)
@@ -294,16 +294,16 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'vn-heatmap' }, async $ => {
+  on('command.run', { command: 'vn-stock-watch' }, async $ => {
     isOpen = true
     startTimers($)
     tick = 0
     wtick = 0
-    await $.ui.open({ id: PANE, title: 'VN heatmap' })
+    await $.ui.open({ id: PANE, title: 'VN Stock Watch' })
     void refresh($)
     void refreshWatch($)
     if (!universe.length) void fetchUniverse($).then(u => { universe = u }, () => {})
-    return { text: 'VN heatmap opened (polls SSI iBoard every 15s while the market is open).' }
+    return { text: 'VN Stock Watch opened (polls SSI iBoard every 15s while the market is open).' }
   })
 
   // Wheel over the treemap zooms (up = in: more tiles, tighter labels; down = out: fewer, bigger); elsewhere it scrolls as usual.
