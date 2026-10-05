@@ -4,7 +4,21 @@ Live Vietnam stock-market heatmap (SSI iBoard data) in a Claude Code pane, with 
 
 ## Install
 
-The mod must live at `~/.claude/mods/vn-stockmarket-heatmap` (on Windows: `%USERPROFILE%\.claude\mods\vn-stockmarket-heatmap`). The folder name matters: state is saved to `~/.claude/state/`, two levels up from the mod.
+### Via `/plugin` (marketplace)
+
+In Claude Code (terminal or desktop):
+
+```
+/plugin marketplace add NgoTuong12345/claude-mod-vn-stock-watch
+/plugin install vn-stockmarket-heatmap@vn-stock-watch
+/reload-plugins
+```
+
+Then run `/vn-heatmap`. State is still saved to `~/.claude/state/`. Update with `/plugin marketplace update vn-stock-watch`.
+
+### Manual clone
+
+Manual clone: the mod must live at `~/.claude/mods/vn-stockmarket-heatmap` (on Windows: `%USERPROFILE%\.claude\mods\vn-stockmarket-heatmap`). The folder name matters: state is saved to `~/.claude/state/`, two levels up from the mod.
 
 ```bash
 git clone https://github.com/NgoTuong12345/claude-mod-vn-stock-watch.git ~/.claude/mods/vn-stockmarket-heatmap

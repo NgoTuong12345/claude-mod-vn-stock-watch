@@ -1,0 +1,11 @@
+{
+  "name": "vn-stock-watch",
+  "owner": { "name": "NgoTuong12345" },
+  "plugins": [
+    {
+      "name": "vn-stockmarket-heatmap",
+      "source": "./",
+      "description": "Live Vietnam stock-market heatmap (SSI iBoard) in a Claude Code pane"
+    }
+  ]
+}

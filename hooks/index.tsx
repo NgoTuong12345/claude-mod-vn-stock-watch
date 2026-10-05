@@ -34,7 +34,13 @@ const SL_N = 28 // map-size slider: segments, the auto-size one, px per segment
 const SL_AUTO = 8
 const SL_STEP = 40
 // Outside the mod dir so a save never hot-reloads the module: ~/.claude/state/vn-heatmap.json
-const listsFile = ($: any) => `${$.plugin.root}/../../state/vn-heatmap.json`
+// ~/.claude/state, whether loaded from ~/.claude/mods/<name> or installed under ~/.claude/plugins/cache/...
+const stateDir = ($: any) => {
+  const r = String($.plugin.root).split(String.fromCharCode(92)).join('/')
+  const i = r.indexOf('/plugins/')
+  return i >= 0 ? `${r.slice(0, i)}/state` : `${r}/../../state`
+}
+const listsFile = ($: any) => `${stateDir($)}/vn-heatmap.json`
 let universe: Ticker[] = [] // ~2k rows; module-level, not an atom
 let wtick = 0
 
@@ -132,7 +138,7 @@ const tone = (r: WRow) => (r.k === 'c' ? '#9B59D0' : r.k === 'f' ? '#17A2B8' : r
 const IDX: [string, string][] = [['VNINDEX', 'VN-Index'], ['HNXIndex', 'HNX-Index'], ['HNXUpcomIndex', 'UPCOM-Index']]
 const DAY = 86_400_000
 // Outside the mod dir (no hot reload on save): listed shares per symbol, refreshed weekly.
-const capsFile = ($: any) => `${$.plugin.root}/../../state/vn-heatmap-shares.json`
+const capsFile = ($: any) => `${stateDir($)}/vn-heatmap-shares.json`
 let sector = new Map<string, string>()
 let sectorAt = 0
 let shares: Record<string, number> = {}
@@ -225,7 +231,7 @@ const refresh = async ($: any) => {
     const dn = q.filter(x => x.p < 0).length
     $.ui.status(`VN ▲${up} ■${q.length - up - dn} ▼${dn}`)
   } catch (err) {
-    void $.fs.write(`${$.plugin.root}/../../state/vn-heatmap.err.log`, `${new Date().toISOString()} ${String((err as Error)?.stack ?? err)}
+    void $.fs.write(`${stateDir($)}/vn-heatmap.err.log`, `${new Date().toISOString()} ${String((err as Error)?.stack ?? err)}
 `).catch(() => {})
     await update($, meta, m => ({ ...m, status: `error: ${String((err as Error).message ?? err).slice(0, 60)}` }))
   }
@@ -596,7 +602,7 @@ export const register: Register = on => {
     )
     } catch (err) {
       const msg = String((err as Error)?.stack ?? err)
-      void $.fs.write(`${$.plugin.root}/../../state/vn-heatmap.err.log`, `${new Date().toISOString()} render ${msg}
+      void $.fs.write(`${stateDir($)}/vn-heatmap.err.log`, `${new Date().toISOString()} render ${msg}
 `).catch(() => {})
       const { Box, Text } = $.ui.resolve(e) as any
       return <Box flexDirection="column"><Text color="#FF8A80">render error: {msg.slice(0, 300)}</Text></Box>
