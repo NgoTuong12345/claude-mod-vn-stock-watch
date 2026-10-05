@@ -1,8 +1,18 @@
 // Self-check for watch.ts pure logic + a live hit on SSI: `bun tests/watch.check.ts`
+import { buildGrid } from '../hooks/treemap'
 import { apply, HEADERS, parse, rowsOf, sectorsOf, SSI, suggest, toQuote, toRow } from '../hooks/watch'
 const assert = (c: unknown, m: string) => { if (!c) throw new Error(m) }
 
 const known = (s: string) => ['FPT', 'FPTS', 'HPG'].includes(s)
+// treemap grid: every tile drawn (half-block raster), labels only on whole rows of their own tile colour
+{
+  const tiles = Array.from({ length: 40 }, (_, i) => ({ label: `T${i}`, sub: '+1.0', bg: `#0000${(i + 16).toString(16)}`, v: 100 / (i + 1) }))
+  const g = buildGrid([{ heads: ['Grp'], tone: '#fff', v: 1, tiles }], 60, 20, 3)
+  const cs = g.flat()
+  assert(g.length === 20 && g.every(r => r.length === 60), 'grid size')
+  assert(tiles.every(t => cs.some(c => c.bg === t.bg || c.fg === t.bg)), 'every tile drawn')
+  assert(cs.every(c => !/[A-Z0-9]/.test(c.ch) || c.bg !== '#1e1e1e'), 'no text on gap')
+}
 assert(parse('fpt', known, false).op === 'add', 'add')
 assert(parse('-FPT', known, false).op === 'del', 'del')
 assert(parse('XYZ', known, false).op === 'bad', 'unknown')

@@ -42,83 +42,79 @@ export const squarify = (vals: number[], x: number, y: number, w: number, h: num
   return out
 }
 
-// cells are twice as tall as wide: lay out in square units, then map y back
-const sq = (vals: number[], x: number, y: number, w: number, h: number) =>
-  squarify(vals, x, y * 2, w, h * 2).map(([a, b, c, d]) => [a, b / 2, c, d / 2])
-
-// Terminal text can't shrink, so a zoom level is "how much room a label gets": pad = blank cols around the
-// ticker, minH = tile rows (2 = ticker over change, 1 = one line), per = cells per tile cap. Every tile drawn is labelled.
+// Half-block raster: each cell is two square "subrows" drawn as ▀ (fg = top half, bg = bottom half), so tile
+// edges land on half rows and thin tiles still show. Text needs a whole cell, so labels sit on full rows only.
+// Terminal text can't shrink, so a zoom level is "how much room a label needs": pad = blank cols around the
+// ticker, minH = text rows a tile must have before it is labelled. Every tile is drawn; small ones stay colour only.
 export const ZOOMS = [
-  { pad: 2, minH: 2, per: 26 }, // big: few tiles, padded two-line labels
-  { pad: 0, minH: 2, per: 10 },
-  { pad: 0, minH: 1, per: 4 },
-  { pad: 0, minH: 1, per: 1 }, // small: as many tiles as fit a bare ticker
+  { pad: 2, minH: 2 }, // big: only roomy tiles labelled, ticker over change
+  { pad: 0, minH: 2 },
+  { pad: 1, minH: 1 },
+  { pad: 0, minH: 1 }, // small: every tile that fits a bare ticker
 ]
 export const buildGrid = (groups: Group[], W: number, H: number, zoom = 0): Cell[][] => {
-  const { pad, minH, per } = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, zoom))]!
-  const g: Cell[][] = Array.from({ length: H }, () => Array.from({ length: W }, () => BLANK))
-  const put = (r: number, c: number, cell: Cell) => { if (r >= 0 && r < H && c >= 0 && c < W) g[r][c] = cell }
+  const { pad, minH } = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, zoom))]!
+  const S = H * 2
+  const px: string[][] = Array.from({ length: S }, () => Array.from({ length: W }, () => GAP))
+  const tx: (Cell | undefined)[][] = Array.from({ length: H }, () => Array.from({ length: W }, () => undefined))
   const fill = (x0: number, y0: number, x1: number, y1: number, bg: string) => {
-    for (let r = y0; r < y1; r++) for (let c = x0; c < x1; c++) put(r, c, { ...BLANK, bg })
+    for (let r = Math.max(0, y0); r < Math.min(S, y1); r++) for (let c = Math.max(0, x0); c < Math.min(W, x1); c++) px[r][c] = bg
   }
-  const text = (r: number, c: number, s: string, w: number, fg: string, bg: string, b: boolean) => {
-    const t = s.slice(0, Math.max(0, w))
-    for (let i = 0; i < t.length; i++) put(r, c + i, { ch: t[i], bg, fg, b })
+  const text = (r: number, c: number, s: string, fg: string, bg: string, b: boolean) => {
+    for (let i = 0; i < s.length; i++) if (r >= 0 && r < H && c + i >= 0 && c + i < W) tx[r][c + i] = { ch: s[i], bg, fg, b }
+  }
+  const box = (q: number[]) => {
+    const x0 = Math.round(q[0]), y0 = Math.round(q[1])
+    return [x0, y0, Math.round(q[0] + q[2]), Math.round(q[1] + q[3])]
   }
 
-  const gr = sq(groups.map(x => x.v), 0, 0, W, H)
+  // a cell is ~2x taller than wide, so a subrow is roughly square: lay out directly in (col, subrow) units
+  const gr = squarify(groups.map(x => x.v), 0, 0, W, S)
   groups.forEach((grp, i) => {
-    const x0 = Math.round(gr[i][0]), y0 = Math.round(gr[i][1])
-    const x1 = Math.round(gr[i][0] + gr[i][2]), y1 = Math.round(gr[i][1] + gr[i][3])
+    const [x0, y0, x1, y1] = box(gr[i])
     const w = x1 - x0, h = y1 - y0
-    if (w < 3 || h < 1) return
-    const hasHead = h >= 3
-    if (hasHead) {
-      fill(x0, y0, x1 - 1, y0 + 1, HEAD) // last col stays GAP so adjacent headers don't merge
+    if (w < 3 || h < 2) return
+    let ty0 = y0
+    if (h >= 6) {
+      const hr = Math.ceil(y0 / 2) // first whole row inside the group carries the header text
+      fill(x0, y0, x1 - 1, hr * 2 + 2, HEAD) // last col stays GAP so adjacent headers don't merge
       const head = grp.heads.find(s => s.length <= w - 2) // never cut mid-word: shorter form or nothing
-      if (head) text(y0, x0 + 1, head, w - 2, grp.tone, HEAD, true)
+      if (head) text(hr, x0 + 1, head, grp.tone, HEAD, true)
+      ty0 = hr * 2 + 2
     }
-    const ty0 = hasHead ? y0 + 1 : y0
-    const th = y1 - ty0
-    // largest k whose every tile can hold its ticker with 1 col padding each side plus gutter; no slivers
-    let tiles = grp.tiles.slice(0, Math.max(1, Math.min(grp.tiles.length, Math.floor((w * th) / per))))
-    let tr = sq(tiles.map(t => t.v), x0, ty0, w, th)
-    const fits = (rs: number[][], ts: Tile[]) =>
-      rs.every((r, n) => Math.round(r[0] + r[2]) - Math.round(r[0]) >= ts[n].label.length + 1 + pad && Math.round(r[1] + r[3]) - Math.round(r[1]) >= minH)
-    while (tiles.length > 1 && !fits(tr, tiles)) {
-      tiles = tiles.slice(0, -1)
-      tr = sq(tiles.map(t => t.v), x0, ty0, w, th)
-    }
-    if (!fits(tr, tiles)) return // group too small to name even its biggest ticker: keep the header only
-    tiles.forEach((t, j) => {
-      const a0 = Math.round(tr[j][0]), b0 = Math.round(tr[j][1])
-      const a1 = Math.round(tr[j][0] + tr[j][2]), b1 = Math.round(tr[j][1] + tr[j][3])
-      const tw = a1 - a0, tH = b1 - b0
-      if (tw < 1 || tH < 1) return
-      fill(a0, b0, a1, b1, t.bg)
-      // uniform gutters: 1 col right, half a row bottom (▀) so gaps look equal in both axes
-      const gr = tw >= 2, gb = tH >= 2
-      if (gb) for (let c = a0; c < a1; c++) put(b1 - 1, c, { ch: '▀', bg: GAP, fg: t.bg, b: false })
-      if (gr) fill(a1 - 1, b0, a1, b1, GAP)
-      const iw = gr ? tw - 1 : tw
-      const ih = gb ? tH - 1 : tH
-      const ok = (s: string) => s.length <= iw - pad // keep 1 col padding each side (none when zoomed out)
+    const tr = squarify(grp.tiles.map(t => t.v), x0, ty0, w, y1 - ty0)
+    grp.tiles.forEach((t, j) => {
+      const [a0, b0, a1, b1] = box(tr[j])
+      const tw = a1 - a0, th = b1 - b0
+      if (tw < 1 || th < 1) return
+      // gutters: 1 col right, 1 subrow (half a row) bottom, so gaps look equal in both axes
+      const iw = tw >= 2 ? tw - 1 : tw
+      const ib1 = th >= 2 ? b1 - 1 : b1
+      fill(a0, b0, a0 + iw, ib1, t.bg)
+      const r0 = Math.ceil(b0 / 2), r1 = Math.floor(ib1 / 2) // whole rows [r0, r1) fully inside the tile
+      const nr = r1 - r0
+      const ok = (s: string) => s.length <= iw - pad
       const label = t.label // never truncated: "T1" for T11 would name the wrong ticker
-      if (!ok(label)) return // too narrow to name: leave as colour only
+      if (nr < minH || !ok(label)) return // too small to name: colour only
       const mid = (s: string) => a0 + Math.floor((iw - s.length) / 2)
-      const sub = [t.sub].find(ok)
-      if (ih >= 2) {
-        // visual tile height = ih rows + the half-row ▀ gutter; centre the 1-2 text lines in it
-        const top = b0 + Math.round((ih + 0.5 - (sub ? 2 : 1)) / 2)
-        text(top, mid(label), label, iw, '#FFFFFF', t.bg, true)
-        if (sub) text(top + 1, mid(sub), sub, iw, '#FFFFFF', t.bg, false)
+      const sub = ok(t.sub) ? t.sub : undefined
+      if (nr >= 2) {
+        const top = r0 + Math.floor((nr - (sub ? 2 : 1)) / 2)
+        text(top, mid(label), label, '#FFFFFF', t.bg, true)
+        if (sub) text(top + 1, mid(sub), sub, '#FFFFFF', t.bg, false)
       } else {
         const s = sub && ok(`${label} ${sub}`) ? `${label} ${sub}` : label
-        text(b0, mid(s), s, iw, '#FFFFFF', t.bg, true)
+        text(r0, mid(s), s, '#FFFFFF', t.bg, true)
       }
     })
   })
-  return g
+  return Array.from({ length: H }, (_, r) =>
+    Array.from({ length: W }, (_, c) => {
+      const t = tx[r][c]
+      if (t) return t
+      const top = px[r * 2][c], bot = px[r * 2 + 1][c]
+      return top === bot ? { ...BLANK, bg: top } : { ch: '▀', bg: bot, fg: top, b: false }
+    }))
 }
 
 export const runs = (row: Cell[]) => {

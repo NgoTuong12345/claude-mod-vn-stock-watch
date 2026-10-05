@@ -306,7 +306,7 @@ export const register: Register = on => {
     return { text: 'VN Stock Watch opened (polls SSI iBoard every 15s while the market is open).' }
   })
 
-  // Wheel over the treemap zooms (up = in: more tiles, tighter labels; down = out: fewer, bigger); elsewhere it scrolls as usual.
+  // Wheel over the treemap zooms (up = in: more, tighter labels; down = out: fewer, roomier); elsewhere it scrolls as usual.
   on('ui.scroll', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
     const r = e.pointer ? e.pointer.row + scrollOff - gridTop : -1
     if (e.origin.kind !== 'person' || !e.pointer || r < 0 || r >= gridLen) return next(e)
