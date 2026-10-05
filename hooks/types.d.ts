@@ -10,7 +10,7 @@ declare module 'claude-code' {
   interface PluginState {
     'vn-stockmarket-heatmap': {
       quotes: Quote[]; meta: Meta; view: View; only: string; idx: Idx[]
-      tab: Tab; lists: Lists; wrows: WRow[]; wlrows: WRow[]; wmeta: Meta; wq: string; wmsg: string; zoom: number
+      tab: Tab; lists: Lists; wrows: WRow[]; wlrows: WRow[]; wmeta: Meta; wq: string; wmsg: string; zoom: number; tzoom: number; mapadj: number
     }
   }
 }

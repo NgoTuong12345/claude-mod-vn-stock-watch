@@ -18,7 +18,7 @@ bun tests/watch.check.ts   # self-check for hooks/watch.ts (parse/apply/suggest/
 
 - `hooks/index.tsx` (the bulk): `register` hook, host `$` API (`$.http.fetch`, `$.fs`, `$.command`), module-level `atom`s for state (`tab`, `view`, `lists`, `wrows`, `zoom`, ...), polling loops, and the Pane UI.
 - `hooks/watch.ts`: pure, testable logic with no host dependency. Maps SSI records to rows (`toRow`), unwraps the `{code,message,data}` envelope (`rowsOf`), ticker suggest, and the input grammar (`parse`/`apply`: `FPT` add, `-FPT` remove, `FPT 1000 62.4` sets qty and cost on the portfolio tab). Put new non-UI logic here so `tests/watch.check.ts` can cover it.
-- `hooks/svgmap.ts`: pixel treemap as an SVG string; `index.tsx` render branches on `e.surface === 'desktop'` (Svg treemap + width-boxed tables) vs the terminal cell grid.
+- `hooks/svgmap.ts`: pixel treemap + zoomable table as SVG strings. `index.tsx` render branches on `e.surface === 'desktop'` (Svg treemap/tables, map-size slider of Buttons, A-/A+ table zoom; no pointer drag: Client pointer events never reach the plugin on desktop) vs the terminal cell grid. Keep shared features (watchlist remove buttons, titles) in both branches.
 - `hooks/treemap.ts`: squarified layout (`squarify`) and terminal cell rendering for the heatmap grid.
 - `hooks/types.d.ts`: shared types (`Tab = vn30 | watch | port`, `View = sector | exchange`).
 

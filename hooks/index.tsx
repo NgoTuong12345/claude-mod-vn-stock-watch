@@ -3,7 +3,8 @@ import type { Register } from 'claude-code'
 
 import type { Idx, Lists, Meta, Quote, Tab, View, WRow } from './types'
 import { buildGrid, runs, ZOOMS } from './treemap'
-import { buildSvg } from './svgmap'
+import { buildSvg, tableSvg, TABLE_FS } from './svgmap'
+import type { TRow } from './svgmap'
 import type { Group } from './treemap'
 import { apply, EXCHANGE, HEADERS, MAX, parse, rowsOf, sectorsOf, SSI, STATS, suggest, toQuote, toRow, toTicker } from './watch'
 import type { Ticker } from './watch'
@@ -24,9 +25,14 @@ const wlrows = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wlrows' } as const
 const wmeta = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmeta' } as const, { at: 0, status: 'idle', n: 0 } as Meta)
 const zoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'zoom' } as const, 0)
 const wq = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wq' } as const, '')
+const mapadj = atom({ plugin: 'vn-stockmarket-heatmap', key: 'mapadj' } as const, 0)
+const tzoom = atom({ plugin: 'vn-stockmarket-heatmap', key: 'tzoom' } as const, 0)
 const wmsg = atom({ plugin: 'vn-stockmarket-heatmap', key: 'wmsg' } as const, '')
 
 const WATCH_MS = 3_000
+const SL_N = 28 // map-size slider: segments, the auto-size one, px per segment
+const SL_AUTO = 8
+const SL_STEP = 40
 // Outside the mod dir so a save never hot-reloads the module: ~/.claude/state/vn-heatmap.json
 const listsFile = ($: any) => `${$.plugin.root}/../../state/vn-heatmap.json`
 let universe: Ticker[] = [] // ~2k rows; module-level, not an atom
@@ -356,7 +362,7 @@ export const register: Register = on => {
     const half = dual ? Math.ceil(shown.length / 2) : shown.length
     const more = wr.length - shown.length
     // tabs + input + hint + table header + rows (+ total, + "more")
-    const wRows = 4 + (wl.length ? wl.length + 1 : 0) + Math.max(1, half) + (t === 'port' && wr.length > 0 ? 1 : 0) + (more > 0 ? 1 : 0)
+    const wRows = 4 + (wl.length ? wl.length + 3 : 0) + Math.max(1, half) + (t === 'port' && wr.length > 0 ? 1 : 0) + (more > 0 ? 1 : 0)
     const H = Math.max(4, bodyRows - 3 - ixRows - wRows) // clock + status + buttons + index row(s)
     const grid = q.length && !desktop ? buildGrid(groups, W, H, z) : []
     gridTop = 3 + ixRows // clock, status, buttons, index row(s)
@@ -379,24 +385,24 @@ export const register: Register = on => {
     }
 
     if (desktop) {
-      const table = (rs: WRow[], cols: Col[], pl = false) => (
-        <Box flexDirection="column" width="100%">
-          <Box width="100%">{cols.map(c => <Box key={c.h} width={c.w} flexGrow={1} justifyContent={c.left ? 'flex-start' : 'flex-end'}><Text bold>{c.h}</Text></Box>)}</Box>
-          {rs.map(r => (
-            <Box key={r.s} width="100%">
-              {cols.map(c => {
-                const v = c.cell(r, pl ? l.port[r.s] : undefined)
-                return <Box key={c.h} width={c.w} flexGrow={1} justifyContent={c.left ? 'flex-start' : 'flex-end'}><Text bold={v.b} dimColor={v.dim} color={v.c} backgroundColor={r.fl > 0 ? UP_BG : r.fl < 0 ? DN_BG : undefined}>{v.s}</Text></Box>
-              })}
-            </Box>
-          ))}
-        </Box>
-      )
-      const dcs = fit(kind, 100, 0) ?? COLS[kind]
-      // Fill the pane: ~8px per column, ~19px per row; the map takes whatever the tables and controls leave.
+      // Fill the pane: ~8px per column. Table zoom (A-/A+) scales the SVG text; once two tables fit side by side, it shows two.
       const mapW = Math.max(480, Math.round(cols * 8))
-      const mapH = Math.max(320, Math.min(1100, Math.round(((e.viewport?.rows ?? 60) - shown.length - wl.length - 14) * 19)))
-      const dwc = COLS.wl
+      const tz = await read($, tzoom)
+      const fs = TABLE_FS[Math.max(0, Math.min(TABLE_FS.length - 1, tz))]!
+      const lh = Math.round(fs * 1.65)
+      const table = (rs: WRow[], k: 'vol' | 'port' | 'wl', pl = false) => {
+        const pxCells = (px: number) => Math.floor(px / (fs * 0.62))
+        const two = rs.length > 1 ? fit(k, pxCells((mapW - 24) / 2), 2) : undefined
+        const cs = two ?? fit(k, pxCells(mapW), 99) ?? COLS[k].filter(c => !DROP[k].includes(c.h))
+        const trs: TRow[] = rs.map(r => ({ cells: cs.map(c => c.cell(r, pl ? l.port[r.s] : undefined)), bg: r.fl > 0 ? '#2ECC71' : r.fl < 0 ? '#FF5A4D' : undefined }))
+        const svg = tableSvg(cs, trs, mapW, fs, !!two)
+        return { svg, h: ((two ? Math.ceil(rs.length / 2) : rs.length) + 1) * lh + 4 }
+      }
+      const mainT = wr.length ? table(wr, kind, t === 'port') : undefined
+      const wlT = wl.length ? table(wl, 'wl') : undefined
+      const adj = await read($, mapadj)
+      const slIdx = Math.max(0, Math.min(SL_N - 1, Math.round(adj / SL_STEP) + SL_AUTO))
+      const mapH = Math.max(160, Math.min(2400, Math.max(320, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 230))) + adj))
       return (
         <Box flexDirection="column">
           <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}{q.length > 0 && !isMarketOpen() ? ' · market closed' : ''}{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''}</Text></Text>
@@ -409,10 +415,18 @@ export const register: Register = on => {
           {ixs.length > 0 && <Box flexWrap="wrap">{ixs.map(x => <Text key={x.key}><Text bold>{x.head}</Text><Text color={x.color}>{x.chg}{'   '}</Text></Text>)}</Box>}
           {q.length === 0 ? <Text dimColor>Loading…</Text> : <Svg source={buildSvg(groups, mapW, mapH)} alt="Vietnam stock-market treemap by market cap, coloured by daily change" />}
           <Box>
-            <Button key="tab-vn30" label="VN30" variant={t === 'vn30' ? 'primary' : undefined} onPress={() => setTab($, 'vn30')} />
-            <Button key="tab-port" label="My Watchlist" variant={t === 'port' ? 'primary' : undefined} onPress={() => setTab($, 'port')} />
+            <Text dimColor>Map size </Text>
+            {Array.from({ length: SL_N }, (_, k) => (
+              <Button key={`ms${k}`} plain label={k <= slIdx ? '█' : '░'} onPress={() => update($, mapadj, () => (k - SL_AUTO) * SL_STEP)} />
+            ))}
+            <Button key="map-auto" label="⟲" onPress={() => update($, mapadj, () => 0)} />
           </Box>
-          {shown.length === 0 ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : table(wr, dcs, t === 'port')}
+          <Box>
+            <Button key="tab-vn30" label="VN30" variant={t === 'vn30' ? 'primary' : undefined} onPress={() => setTab($, 'vn30')} />
+            <Button key="tz-out" label="A−" onPress={() => update($, tzoom, z => Math.max(0, z - 1))} />
+            <Button key="tz-in" label="A+" onPress={() => update($, tzoom, z => Math.min(TABLE_FS.length - 1, z + 1))} />
+          </Box>
+          {!mainT ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : <Svg source={mainT.svg} alt="Stock table" />}
           {t === 'port' && wr.length > 0 && (() => {
             const cost = wr.reduce((a, r) => a + (l.port[r.s] ? l.port[r.s].c * 1000 * l.port[r.s].q : 0), 0)
             const val = wr.reduce((a, r) => a + (l.port[r.s] ? r.p * l.port[r.s].q : 0), 0)
@@ -429,7 +443,16 @@ export const register: Register = on => {
             onSubmit={(v: string) => { void submit($, v) }}
           />
           <Text dimColor>{q0.trim() ? suggest(universe, q0).map(x => `${x.code} (${x.name}.${x.ex === 'HOSE' ? 'HSX' : x.ex})`).join(' · ') || (universe.length ? 'no match' : 'loading tickers…') : msg || ' '}</Text>
-          {wl.length > 0 && <Box flexDirection="column"><Text bold>Watchlist</Text>{table(wl, dwc)}</Box>}
+          {wlT && (
+            <Box flexDirection="column">
+              <Text bold>My Watchlist</Text>
+              <Svg source={wlT.svg} alt="Watchlist table" />
+              <Box flexWrap="wrap">
+                <Text dimColor>Remove </Text>
+                {l.watch.map(sym => <Button key={`rm-${sym}`} label={`${sym} −`} onPress={() => { void submit($, `-${sym}`) }} />)}
+              </Box>
+            </Box>
+          )}
         </Box>
       )
     }
@@ -518,6 +541,7 @@ export const register: Register = on => {
           const wc = fit('wl', W, 99) ?? COLS.wl.filter(c => !DROP.wl.includes(c.h))
           return (
             <Box flexDirection="column">
+              <Text bold>My Watchlist</Text>
               <Text bold>{wc.map(c => (c.left ? c.h.padEnd(c.w) : c.h.padStart(c.w))).join('')}</Text>
               {wl.map(r => (
                 <Text key={r.s}>
@@ -527,6 +551,10 @@ export const register: Register = on => {
                   })}
                 </Text>
               ))}
+              <Box flexWrap="wrap">
+                <Text dimColor>Remove </Text>
+                {l.watch.map(sym => <Button key={`rm-${sym}`} label={`${sym} -`} onPress={() => { void submit($, `-${sym}`) }} />)}
+              </Box>
             </Box>
           )
         })()}

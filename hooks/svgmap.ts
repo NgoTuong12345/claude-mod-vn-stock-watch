@@ -48,3 +48,38 @@ export const buildSvg = (groups: Group[], W: number, H: number): string => {
   }
   return out
 }
+
+// Table as SVG so zoom can scale the text (desktop Text has no size). `dual` = two side-by-side halves.
+export type TCell = { s: string; c?: string; dim?: boolean; b?: boolean }
+export type THead = { h: string; w: number; left?: boolean }
+export type TRow = { cells: TCell[]; bg?: string }
+export const TABLE_FS = [13, 16, 20, 25, 31]
+
+export const tableSvg = (heads: THead[], rows: TRow[], W: number, fs: number, dual: boolean): string => {
+  const lh = Math.round(fs * 1.65)
+  const gap = dual ? 24 : 0
+  const bw = dual ? (W - gap) / 2 : W
+  const per = dual ? Math.ceil(rows.length / 2) : rows.length
+  const H = (per + 1) * lh + 4
+  const total = heads.reduce((a, c) => a + c.w, 0)
+  const out: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="system-ui,sans-serif" font-size="${fs}">`]
+  const block = (x0: number, rs: TRow[]) => {
+    let cx = x0
+    const cols = heads.map(c => { const w = (bw * c.w) / total; const o = { c, x: cx, w }; cx += w; return o })
+    const put = (o: { c: THead; x: number; w: number }, y: number, t: TCell | string) => {
+      const cell = typeof t === 'string' ? { s: t, b: true } : t
+      const left = !!o.c.left
+      out.push(`<text x="${r(left ? o.x + 4 : o.x + o.w - 4)}" y="${r(y + lh / 2 + fs * 0.35)}" text-anchor="${left ? 'start' : 'end'}" fill="${cell.c ?? '#e6e6e6'}"${cell.b ? ' font-weight="700"' : ''}${cell.dim ? ' opacity=".6"' : ''}>${esc(cell.s)}</text>`)
+    }
+    cols.forEach(o => put(o, 0, o.c.h))
+    rs.forEach((row, i) => {
+      const y = (i + 1) * lh
+      if (row.bg) out.push(`<rect x="${r(x0)}" y="${y}" width="${r(bw)}" height="${lh}" fill="${row.bg}" fill-opacity=".5"/>`)
+      cols.forEach((o, k) => put(o, y, row.cells[k]!))
+    })
+  }
+  block(0, rows.slice(0, per))
+  if (dual) block(bw + gap, rows.slice(per))
+  out.push('</svg>')
+  return out.join('')
+}
