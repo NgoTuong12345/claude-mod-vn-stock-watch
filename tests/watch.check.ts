@@ -1,5 +1,5 @@
-// Self-check for watch.ts pure logic + a live hit on SSI: `bun hooks/watch.check.ts`
-import { apply, HEADERS, parse, rowsOf, sectorsOf, SSI, suggest, toQuote, toRow } from './watch'
+// Self-check for watch.ts pure logic + a live hit on SSI: `bun tests/watch.check.ts`
+import { apply, HEADERS, parse, rowsOf, sectorsOf, SSI, suggest, toQuote, toRow } from '../hooks/watch'
 const assert = (c: unknown, m: string) => { if (!c) throw new Error(m) }
 
 const known = (s: string) => ['FPT', 'FPTS', 'HPG'].includes(s)
