@@ -3,6 +3,7 @@ import type { Register } from 'claude-code'
 
 import type { Idx, Lists, Meta, Quote, Tab, View, WRow } from './types'
 import { buildGrid, runs, ZOOMS } from './treemap'
+import { buildSvg } from './svgmap'
 import type { Group } from './treemap'
 import { apply, EXCHANGE, HEADERS, MAX, parse, rowsOf, sectorsOf, SSI, STATS, suggest, toQuote, toRow, toTicker } from './watch'
 import type { Ticker } from './watch'
@@ -294,7 +295,8 @@ export const register: Register = on => {
       void refreshWatch($)
     }
     try {
-    const { Box, Text, Button, Input } = $.ui.resolve(e) as any
+    const { Box, Text, Button, Input, Svg } = $.ui.resolve(e) as any
+    const desktop = e.surface === 'desktop'
     const q = await read($, quotes)
     const m = await read($, meta)
     const v = await read($, view)
@@ -356,7 +358,7 @@ export const register: Register = on => {
     // tabs + input + hint + table header + rows (+ total, + "more")
     const wRows = 4 + (wl.length ? wl.length + 1 : 0) + Math.max(1, half) + (t === 'port' && wr.length > 0 ? 1 : 0) + (more > 0 ? 1 : 0)
     const H = Math.max(4, bodyRows - 3 - ixRows - wRows) // clock + status + buttons + index row(s)
-    const grid = q.length ? buildGrid(groups, W, H, z) : []
+    const grid = q.length && !desktop ? buildGrid(groups, W, H, z) : []
     gridTop = 3 + ixRows // clock, status, buttons, index row(s)
     gridLen = grid.length
     scrollOff = (e.props as any)?.scroll?.offset ?? 0
@@ -373,6 +375,62 @@ export const register: Register = on => {
             return <Text key={c.h} bold={v.b} dimColor={v.dim} color={v.c} backgroundColor={bg}>{c.left ? v.s.padEnd(c.w) : v.s.padStart(c.w)}</Text>
           })}
         </Text>
+      )
+    }
+
+    if (desktop) {
+      const table = (rs: WRow[], cols: Col[], pl = false) => (
+        <Box flexDirection="column" width="100%">
+          <Box width="100%">{cols.map(c => <Box key={c.h} width={c.w} flexGrow={1} justifyContent={c.left ? 'flex-start' : 'flex-end'}><Text bold>{c.h}</Text></Box>)}</Box>
+          {rs.map(r => (
+            <Box key={r.s} width="100%">
+              {cols.map(c => {
+                const v = c.cell(r, pl ? l.port[r.s] : undefined)
+                return <Box key={c.h} width={c.w} flexGrow={1} justifyContent={c.left ? 'flex-start' : 'flex-end'}><Text bold={v.b} dimColor={v.dim} color={v.c} backgroundColor={r.fl > 0 ? UP_BG : r.fl < 0 ? DN_BG : undefined}>{v.s}</Text></Box>
+              })}
+            </Box>
+          ))}
+        </Box>
+      )
+      const dcs = fit(kind, 100, 0) ?? COLS[kind]
+      // Fill the pane: ~8px per column, ~19px per row; the map takes whatever the tables and controls leave.
+      const mapW = Math.max(480, Math.round(cols * 8))
+      const mapH = Math.max(320, Math.min(1100, Math.round(((e.viewport?.rows ?? 60) - shown.length - wl.length - 14) * 19)))
+      const dwc = COLS.wl
+      return (
+        <Box flexDirection="column">
+          <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}{q.length > 0 && !isMarketOpen() ? ' · market closed' : ''}{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''}</Text></Text>
+          <Box flexWrap="wrap">
+            <Button key="by-sector" label="Sector" variant={v === 'sector' ? 'primary' : undefined} onPress={() => update($, view, () => 'sector' as View)} />
+            <Button key="by-exchange" label="Exchange" variant={v === 'exchange' ? 'primary' : undefined} onPress={() => update($, view, () => 'exchange' as View)} />
+            <Button key="sector-filter" label={sel ? `Filter: ${sel.slice(0, 18)}` : 'Filter: all'} onPress={nextSector} />
+            <Button key="filter-default" label="Default" variant={sel ? undefined : 'primary'} onPress={() => update($, only, () => '')} />
+          </Box>
+          {ixs.length > 0 && <Box flexWrap="wrap">{ixs.map(x => <Text key={x.key}><Text bold>{x.head}</Text><Text color={x.color}>{x.chg}{'   '}</Text></Text>)}</Box>}
+          {q.length === 0 ? <Text dimColor>Loading…</Text> : <Svg source={buildSvg(groups, mapW, mapH)} alt="Vietnam stock-market treemap by market cap, coloured by daily change" />}
+          <Box>
+            <Button key="tab-vn30" label="VN30" variant={t === 'vn30' ? 'primary' : undefined} onPress={() => setTab($, 'vn30')} />
+            <Button key="tab-port" label="My Watchlist" variant={t === 'port' ? 'primary' : undefined} onPress={() => setTab($, 'port')} />
+          </Box>
+          {shown.length === 0 ? <Text dimColor>{t === 'vn30' ? 'Loading VN30…' : 'Empty. Add a ticker below.'}</Text> : table(wr, dcs, t === 'port')}
+          {t === 'port' && wr.length > 0 && (() => {
+            const cost = wr.reduce((a, r) => a + (l.port[r.s] ? l.port[r.s].c * 1000 * l.port[r.s].q : 0), 0)
+            const val = wr.reduce((a, r) => a + (l.port[r.s] ? r.p * l.port[r.s].q : 0), 0)
+            const pl = val - cost
+            return <Text bold>Total  Value {money(val)}  <Text color={plc(pl)}>P&L {money(pl)} ({sgn(cost ? (pl / cost) * 100 : 0)}%)</Text></Text>
+          })()}
+          <Input
+            key="ticker"
+            label="Search "
+            placeholder={t === 'port' ? 'FPT 1000 62.4 (sym qty cost-in-k) · -FPT removes' : 'ticker, Enter adds · -FPT removes'}
+            value={q0}
+            submitLabel="add"
+            onInput={(v: string) => { void update($, wq, () => v) }}
+            onSubmit={(v: string) => { void submit($, v) }}
+          />
+          <Text dimColor>{q0.trim() ? suggest(universe, q0).map(x => `${x.code} (${x.name}.${x.ex === 'HOSE' ? 'HSX' : x.ex})`).join(' · ') || (universe.length ? 'no match' : 'loading tickers…') : msg || ' '}</Text>
+          {wl.length > 0 && <Box flexDirection="column"><Text bold>Watchlist</Text>{table(wl, dwc)}</Box>}
+        </Box>
       )
     }
 
