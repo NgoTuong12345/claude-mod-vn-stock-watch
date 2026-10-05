@@ -220,6 +220,21 @@ const isMarketOpen = () => {
   const h = t.getUTCHours() + t.getUTCMinutes() / 60
   return d >= 1 && d <= 5 && h >= 9 && h < 15.1
 }
+// Status label from the exchange schedule (HOSE: ATO 9:00-9:15, ATC 14:30-14:45, put-through to 15:00; UPCOM trades to 15:00)
+const session = (): { t: string; c: string } => {
+  const x = new Date(Date.now() + 7 * 3600_000)
+  const d = x.getUTCDay()
+  const h = x.getUTCHours() + x.getUTCMinutes() / 60
+  const G = '#2ECC71', A = '#F5B041', R = '#FF5A4D'
+  if (d < 1 || d > 5) return { t: 'Closed', c: R }
+  if (h >= 9 && h < 9.25) return { t: 'ATO', c: A }
+  if (h >= 9.25 && h < 11.5) return { t: 'Open', c: G }
+  if (h >= 11.5 && h < 13) return { t: 'Lunch break', c: R }
+  if (h >= 13 && h < 14.5) return { t: 'Open', c: G }
+  if (h >= 14.5 && h < 14.75) return { t: 'ATC', c: A }
+  if (h >= 14.75 && h < 15) return { t: 'Post-close', c: A }
+  return { t: 'Closed', c: R }
+}
 
 const refresh = async ($: any) => {
   try {
@@ -412,7 +427,7 @@ export const register: Register = on => {
       const mapH = Math.max(160, Math.min(2400, Math.max(320, Math.min(1100, Math.round((e.viewport?.rows ?? 60) * 19 - (mainT?.h ?? 40) - (wlT?.h ?? 0) - 230))) + adj))
       return (
         <Box flexDirection="column" backgroundColor="#202226" flexGrow={1}>
-          <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}{q.length > 0 && !isMarketOpen() ? ' · market closed' : ''}{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''} · Source: SSI API</Text></Text>
+          <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)} <Text dimColor>{m.status === 'live' ? `${age}s ago` : m.status}<Text color={session().c}> · {session().t}</Text>{capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''} · Source: SSI API</Text></Text>
           <Box flexWrap="wrap">
             <Select
               key="sel-view"
@@ -501,7 +516,7 @@ export const register: Register = on => {
         <Text bold>HCMC {new Date(Date.now() + 7 * 3600_000).toISOString().slice(11, 19)}</Text>
         <Text dimColor>
           {m.status === 'live' ? `${age}s ago` : m.status}
-          {q.length > 0 && !isMarketOpen() ? (narrow ? ' · closed' : ' · market closed') : ''}
+          {` · ${session().t}`}
           {capsHave < capsOf ? ` · caps ${capsHave}/${capsOf}` : ''}
           {' · Source: SSI API'}
         </Text>
