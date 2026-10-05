@@ -5,7 +5,7 @@
     {
       "name": "vn-stockmarket-heatmap",
       "source": "./",
-      "description": "Live Vietnam stock-market heatmap (SSI iBoard) in a Claude Code pane"
+      "description": "Live Vietnam stock-market heatmap and price board (SSI iBoard) in a Claude Code pane"
     }
   ]
 }

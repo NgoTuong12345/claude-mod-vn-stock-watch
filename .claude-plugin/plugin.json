@@ -1,1 +1,1 @@
-{ "name": "vn-stockmarket-heatmap", "version": "0.2.0", "description": "Live Vietnam stock-market heatmap (SSI iBoard) in a Claude Code pane", "author": { "name": "local" }, "types": "./hooks/types.d.ts" }
+{ "name": "vn-stockmarket-heatmap", "version": "0.2.0", "description": "Live Vietnam stock-market heatmap and price board (SSI iBoard) in a Claude Code pane", "author": { "name": "local" }, "types": "./hooks/types.d.ts" }
