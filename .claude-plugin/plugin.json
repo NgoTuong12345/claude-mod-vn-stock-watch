@@ -1,0 +1,1 @@
+{ "name": "vn-stockmarket-heatmap", "version": "0.1.0", "description": "Live Vietnam stock-market heatmap (Vietstock) in a Claude Code pane", "author": { "name": "local" }, "types": "./hooks/types.d.ts" }
